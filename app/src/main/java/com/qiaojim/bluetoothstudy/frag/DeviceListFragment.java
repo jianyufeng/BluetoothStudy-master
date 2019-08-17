@@ -1,6 +1,7 @@
 package com.qiaojim.bluetoothstudy.frag;
 
 import android.Manifest;
+import android.app.Dialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
@@ -29,13 +30,15 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.qiaojim.bluetoothstudy.ChatController;
 import com.qiaojim.bluetoothstudy.ClientThread;
-import com.qiaojim.bluetoothstudy.ClsUtils;
+import com.qiaojim.bluetoothstudy.DialogUtil;
 import com.qiaojim.bluetoothstudy.MainActivity;
 import com.qiaojim.bluetoothstudy.Params;
 import com.qiaojim.bluetoothstudy.R;
 import com.qiaojim.bluetoothstudy.ServerThread;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -76,17 +79,9 @@ public class DeviceListFragment extends Fragment {
             }
         }
         if (!grantedLocation) {
-            toast("未权限,不能使用");
+            toast("权限未授权,不能使用");
             mainActivity.finish();
         }
-     /*   switch (requestCode) {
-            case Params.MY_PERMISSION_REQUEST_CONSTANT: {
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    // 运行时权限已授权
-                }
-                return;
-            }
-        }*/
     }
 
     @Override
@@ -95,6 +90,7 @@ public class DeviceListFragment extends Fragment {
         setHasOptionsMenu(true);
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
+            toast("系统无蓝牙");
             getActivity().finish();
         }
     }
@@ -121,32 +117,62 @@ public class DeviceListFragment extends Fragment {
                     Log.e(TAG, "---------------client item click , cancel server thread ," +
                             "server thread is null");
                 }
+                if (clientThread != null) {
+                    clientThread.cancle();
+                }
+                shoPress();
                 BluetoothDevice device = deviceList.get(position);
-                // 开启客户端线程，连接点击的远程设备
-                if (device.getBondState() == BluetoothDevice.BOND_NONE){
-                    Log.d(TAG, "onItemClick: ");
-                    return;
-                }
-                try {
-                    if (!ClsUtils.createBond(device.getClass(),device)){
-                        return;
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    return;
-                }
-                clientThread = new ClientThread(bluetoothAdapter, device, uiHandler);
-                new Thread(clientThread).start();
-//                ChatController.getInstance().startChatWith(device, bluetoothAdapter, uiHandler);//与服务器连接进行聊天 也就是客户端连接服务端
-                // 通知 ui 连接的服务器端设备
+                peidui(device); //配对
+
+//              ChatController.getInstance().startChatWith(device, bluetoothAdapter, uiHandler);//与服务器连接进行聊天 也就是客户端连接服务端
+     /*             // 通知 ui 连接的服务器端设备
                 Message message = new Message();
                 message.what = Params.MSG_CONNECT_TO_SERVER;
                 message.obj = device;
-                uiHandler.sendMessage(message);
-
+                uiHandler.sendMessage(message);*/
             }
         });
 
+    }
+
+    private Dialog mDialog;
+
+    public void shoPress() {
+        dismissProgress();
+        mDialog = DialogUtil.getInstance().showProgressDialog(mainActivity, "正在连接...", false);
+        mDialog.show();
+    }
+
+    /**
+     * 隐藏进度框
+     */
+    public void dismissProgress() {
+        if (mDialog != null && mDialog.isShowing()) {
+            DialogUtil.getInstance().dismissDialog(mDialog);
+        }
+    }
+
+    private void lianjie(BluetoothDevice device) {
+        // 开启客户端线程，连接点击的远程设备
+        clientThread = new ClientThread(bluetoothAdapter, device, uiHandler, mainActivity);
+        new Thread(clientThread).start();
+    }
+
+    private void peidui(BluetoothDevice device) {
+        if (device.getBondState() == BluetoothDevice.BOND_NONE) {  //未配对，就先配对，再连接
+            Method m = null;
+            try {
+                m = BluetoothDevice.class.getMethod("createBond");
+                m.invoke(device);
+            } catch (Exception e) {
+                e.printStackTrace();
+                shoPress();
+            }
+        } else if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
+            lianjie(device);
+        } else if (device.getBondState() == BluetoothDevice.BOND_BONDING) {
+            toast("正在配对");
+        }
     }
 
     @Override
@@ -159,6 +185,7 @@ public class DeviceListFragment extends Fragment {
         intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
         intentFilter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
         intentFilter.addAction(BluetoothDevice.ACTION_FOUND);
+        intentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
         getActivity().registerReceiver(btReceiver, intentFilter);
     }
 
@@ -193,17 +220,14 @@ public class DeviceListFragment extends Fragment {
             Log.e(TAG, "-------------- new server thread");
             serverThread = new ServerThread(bluetoothAdapter, uiHandler);
             new Thread(serverThread).start();
-
-//            ChatController.getInstance().waitingForFriends(bluetoothAdapter, uiHandler);//等待客户端来连接
-
-
+            ChatController.getInstance().waitingForFriends(bluetoothAdapter, uiHandler);//等待客户端来连接
         }
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (btReceiver != null){
+        if (btReceiver != null) {
             getActivity().unregisterReceiver(btReceiver);
         }
 //        ChatController.getInstance().stopChart();//停止聊天
@@ -303,6 +327,34 @@ public class DeviceListFragment extends Fragment {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            Message message = new Message();
+            message.what = Params.MSG_Duan_kai;
+            uiHandler.sendMessage(message);
+        }
+    }
+
+    public void writeData(byte[] dataSend) {
+//        Message message =new Message();
+//        message.obj = dataSend;
+//        if (serverThread!=null){
+//            message.what=Params.MSG_SERVER_WRITE_NEW;
+//            serverThread.writeHandler.sendMessage(message);
+//        }
+//        if (clientThread!=null){
+//            message.what=Params.MSG_CLIENT_WRITE_NEW;
+//            clientThread.writeHandler.sendMessage(message);
+//        }
+        try {
+            if (serverThread != null) {
+                serverThread.write(dataSend);
+            } else if (clientThread != null) {
+                clientThread.write(dataSend);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Message message = new Message();
+            message.what = Params.MSG_Duan_kai;
+            uiHandler.sendMessage(message);
         }
     }
 
@@ -394,6 +446,27 @@ public class DeviceListFragment extends Fragment {
                     deviceList.add(device);
                     listAdapter.notifyDataSetChanged();
                     Log.e(TAG, "---------------- " + device.getName());
+                }
+            } else if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)) {
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                String name = device.getName();
+                Log.d("aaa", "device name: " + name);
+                int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, -1);
+                switch (state) {
+                    case BluetoothDevice.BOND_NONE:
+                        Log.d("aaa", "BOND_NONE 删除配对");
+                        toast("配对失败");
+                        dismissProgress();
+                        break;
+                    case BluetoothDevice.BOND_BONDING:
+                        Log.d("aaa", "BOND_BONDING 正在配对");
+                        toast("正在配对");
+                        break;
+                    case BluetoothDevice.BOND_BONDED:
+                        Log.d("aaa", "BOND_BONDED 配对成功");
+                        toast("配对成功");
+                        lianjie(device);
+                        break;
                 }
             }
         }

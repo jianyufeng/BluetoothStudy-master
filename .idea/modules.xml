@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/BluetoothStudy.iml" filepath="$PROJECT_DIR$/BluetoothStudy.iml" />
       <module fileurl="file://$PROJECT_DIR$/BluetoothStudy-master.iml" filepath="$PROJECT_DIR$/BluetoothStudy-master.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/sweet_dialog_library/sweet_dialog_library.iml" filepath="$PROJECT_DIR$/sweet_dialog_library/sweet_dialog_library.iml" />
     </modules>
   </component>
 </project>

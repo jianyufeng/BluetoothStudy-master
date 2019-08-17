@@ -23,7 +23,7 @@ public class ServerThread implements Runnable {
     final String TAG = "ServerThread";
 
     BluetoothAdapter bluetoothAdapter;
-    BluetoothServerSocket serverSocket =null;
+    BluetoothServerSocket serverSocket = null;
     BluetoothSocket socket = null;
     Handler uiHandler;
     Handler writeHandler;
@@ -78,9 +78,12 @@ public class ServerThread implements Runnable {
                             String content;
                             try {
                                 while ((len = in.read(buffer)) != -1) {
-                                    content = new String(buffer, 0, len);
+//                                    content = new String(buffer, 0, len);
+                                    byte[] r = new byte[len];
+                                    System.arraycopy(buffer, 0, r, 0, len);
+                                    content = HexConvert.BinaryToHexString(r);
                                     Message message = new Message();
-                                    message.what = Params.MSG_CLIENT_REV_NEW;
+                                    message.what = Params.MSG_SERVER_REV_NEW;
                                     message.obj = content;
                                     uiHandler.sendMessage(message);
                                     Log.e(TAG, "------------- server read data in while ,send msg ui" + content);
@@ -88,6 +91,9 @@ public class ServerThread implements Runnable {
 
                             } catch (IOException e) {
                                 e.printStackTrace();
+                                Message message = new Message();
+                                message.what = Params.MSG_Duan_kai;
+                                uiHandler.sendMessage(message);
                             }
                         }
                     }).start();
@@ -109,7 +115,7 @@ public class ServerThread implements Runnable {
 //                        }
 //                    };
 //                    Looper.loop();
-                    break;
+//                    break;
                 }
             }// end while(true)
         } catch (IOException e) {
@@ -118,11 +124,21 @@ public class ServerThread implements Runnable {
 
     }
 
-    public void write(String data){
+    public void write(String data) {
 //        data = data+"\r\n";
         try {
             out.write(data.getBytes("utf-8"));
-            Log.e(TAG, "---------- write data ok "+data);
+            Log.e(TAG, "---------- write data ok " + data);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void write(byte[] data) {
+//        data = data+"\r\n";
+        try {
+            out.write(data);
+            Log.e(TAG, "---------- write data ok " + data);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -132,7 +148,7 @@ public class ServerThread implements Runnable {
         try {
             acceptFlag = false;
             serverSocket.close();
-            Log.e(TAG, "-------------- do cancel ,flag is "+acceptFlag);
+            Log.e(TAG, "-------------- do cancel ,flag is " + acceptFlag);
 
         } catch (IOException e) {
             e.printStackTrace();

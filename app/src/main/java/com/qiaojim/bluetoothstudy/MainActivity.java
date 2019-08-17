@@ -27,30 +27,41 @@ public class MainActivity extends AppCompatActivity {
     TabLayout tabLayout;
     ViewPager viewPager;
     MyPagerAdapter pagerAdapter;
-    String[] titleList=new String[]{"设备列表","数据传输"};
-    List<Fragment> fragmentList=new ArrayList<>();
+    String[] titleList = new String[]{"设备列表", "蓝牙控制"};
+    List<Fragment> fragmentList = new ArrayList<>();
 
     DeviceListFragment deviceListFragment;
     DataTransFragment dataTransFragment;
 
     BluetoothAdapter bluetoothAdapter;
 
-    Handler uiHandler =new Handler(){
+    Handler uiHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
 
-            switch (msg.what){
+            switch (msg.what) {
                 case Params.MSG_REV_A_CLIENT:
-                    Log.e(TAG,"--------- uihandler set device name, go to data frag");
+                    Log.e(TAG, "--------- uihandler set device name, go to data frag");
                     BluetoothDevice clientDevice = (BluetoothDevice) msg.obj;
                     dataTransFragment.receiveClient(clientDevice);
                     viewPager.setCurrentItem(1);
                     break;
                 case Params.MSG_CONNECT_TO_SERVER:
-                    Log.e(TAG,"--------- uihandler set device name, go to data frag");
+                    Log.e(TAG, "--------- uihandler set device name, go to data frag");
                     BluetoothDevice serverDevice = (BluetoothDevice) msg.obj;
                     dataTransFragment.connectServer(serverDevice);
+                    deviceListFragment.dismissProgress();
                     viewPager.setCurrentItem(1);
+                    break;
+                case Params.MSG_Duan_kai:
+                    dataTransFragment.duankaiServer();
+                    viewPager.setCurrentItem(1);
+                    deviceListFragment.dismissProgress();
+                    break;
+                case Params.MSG_lian_jie_error:
+                    dataTransFragment.lianjieErrorServer();
+                    viewPager.setCurrentItem(1);
+                    deviceListFragment.dismissProgress();
                     break;
                 case Params.MSG_SERVER_REV_NEW:
                     String newMsgFromClient = msg.obj.toString();
@@ -61,9 +72,15 @@ public class MainActivity extends AppCompatActivity {
                     dataTransFragment.updateDataView(newMsgFromServer, Params.REMOTE);
                     break;
                 case Params.MSG_WRITE_DATA:
-                    String dataSend = msg.obj.toString();
-                    dataTransFragment.updateDataView(dataSend, Params.ME);
-                    deviceListFragment.writeData(dataSend);
+                    Object obj = msg.obj;
+                    if (obj instanceof String) {
+                        String dataSend = obj.toString();
+                        dataTransFragment.updateDataView(dataSend, Params.ME);
+                        deviceListFragment.writeData(dataSend);
+                    } else {
+                        byte[] s = (byte[]) msg.obj;
+                        deviceListFragment.writeData(s);
+                    }
                     break;
 
             }
@@ -75,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        bluetoothAdapter=BluetoothAdapter.getDefaultAdapter();
+        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
         initUI();
     }
@@ -83,9 +100,10 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * 返回 uiHandler
+     *
      * @return
      */
-    public Handler getUiHandler(){
+    public Handler getUiHandler() {
         return uiHandler;
     }
 
@@ -93,18 +111,18 @@ public class MainActivity extends AppCompatActivity {
      * 初始化界面
      */
     private void initUI() {
-        tabLayout= (TabLayout) findViewById(R.id.tab_layout);
-        viewPager= (ViewPager) findViewById(R.id.view_pager);
+        tabLayout = (TabLayout) findViewById(R.id.tab_layout);
+        viewPager = (ViewPager) findViewById(R.id.view_pager);
 
         tabLayout.addTab(tabLayout.newTab().setText(titleList[0]));
         tabLayout.addTab(tabLayout.newTab().setText(titleList[1]));
 
-        deviceListFragment=new DeviceListFragment();
-        dataTransFragment=new DataTransFragment();
+        deviceListFragment = new DeviceListFragment();
+        dataTransFragment = new DataTransFragment();
         fragmentList.add(deviceListFragment);
         fragmentList.add(dataTransFragment);
 
-        pagerAdapter=new MyPagerAdapter(getSupportFragmentManager());
+        pagerAdapter = new MyPagerAdapter(getSupportFragmentManager());
         viewPager.setAdapter(pagerAdapter);
         tabLayout.setupWithViewPager(viewPager);
     }
@@ -112,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * ViewPager 适配器
      */
-    public class MyPagerAdapter extends FragmentPagerAdapter{
+    public class MyPagerAdapter extends FragmentPagerAdapter {
 
         public MyPagerAdapter(FragmentManager fm) {
             super(fm);
@@ -137,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Toast 提示
      */
-    public void toast(String str){
+    public void toast(String str) {
         Toast.makeText(this, str, Toast.LENGTH_SHORT).show();
     }
 }
